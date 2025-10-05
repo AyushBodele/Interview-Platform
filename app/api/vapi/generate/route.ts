@@ -1,7 +1,8 @@
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 
-import { db } from "@/firebase/admin";
+import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/utils";
 import { getRandomInterviewCover } from "@/lib/utils";
 
 export async function POST(request: Request) {
@@ -37,7 +38,10 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    await db.collection("interviews").add(interview);
+    const cookieStore = await cookies();
+    const supabase = createSupabaseServerClient(cookieStore);
+    const { error } = await supabase.from("interviews").insert(interview);
+    if (error) throw error;
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {

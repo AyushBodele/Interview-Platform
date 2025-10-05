@@ -6,11 +6,10 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-import { auth } from "@/firebase/client";
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth";
+import { createSupabaseBrowserClient } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-const AuthForm = () => {
+const AuthForm = ({ type }: { type?: FormType }) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -19,20 +18,15 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
-      const provider = new GoogleAuthProvider();
-
-      // Try popup sign-in
-      const result = await signInWithPopup(auth, provider).catch(async (err) => {
-        console.warn("Popup failed, falling back to redirect:", err);
-        await signInWithRedirect(auth, provider); // fallback
-        return null;
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
       });
-
-      if (result?.user) {
-        const user = result.user;
-        toast.success(`Signed in as ${user.displayName || user.email}`);
-        router.push("/"); // redirect after login
-      }
+      if (error) throw error;
+      if (data?.url) window.location.href = data.url;
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "Google Sign-In failed");
@@ -40,6 +34,8 @@ const AuthForm = () => {
       setLoading(false);
     }
   };
+
+  const isSignIn = type === "sign-in";
 
   return (
     <div className="card-border lg:min-w-[566px]">
@@ -53,14 +49,23 @@ const AuthForm = () => {
 
         <div className="flex flex-col gap-4 mt-6">
           <Button onClick={handleGoogleSignIn} disabled={loading}>
-            {loading ? "Signing in..." : "Sign in with Google"}
+            {loading
+              ? isSignIn
+                ? "Signing in..."
+                : "Creating your account..."
+              : isSignIn
+              ? "Continue with Google"
+              : "Sign up with Google"}
           </Button>
         </div>
 
         <p className="text-center mt-4">
-          New to PrepWise?{" "}
-          <Link href="/sign-up" className="font-bold text-user-primary ml-1">
-            Sign Up
+          {isSignIn ? "New to PrepWise?" : "Already have an account?"}{" "}
+          <Link
+            href={isSignIn ? "/sign-up" : "/sign-in"}
+            className="font-bold text-user-primary ml-1"
+          >
+            {isSignIn ? "Sign Up" : "Sign In"}
           </Link>
         </p>
       </div>
